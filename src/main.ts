@@ -28,13 +28,13 @@ export default class HighlightMigratorPlugin extends Plugin {
     this.addRibbonIcon("highlighter", "Highlight Migrator", () => this.openView());
 
     this.addCommand({
-      id: "open-highlight-migrator",
+      id: "open-migrator",
       name: "Open migrator (scan & map)",
       callback: () => this.openView(),
     });
 
     this.addCommand({
-      id: "revert-last-highlight-migration",
+      id: "revert-last-migration",
       name: "Revert last migration",
       callback: () => this.revertLast(),
     });

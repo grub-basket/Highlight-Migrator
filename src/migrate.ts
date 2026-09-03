@@ -198,7 +198,12 @@ export async function writeReport(
     .replace(/[:.]/g, "-")
     .replace("T", "_")
     .slice(0, 19);
-  const path = normalizePath(`${reportFolder}/Highlight scan ${stamp}.md`);
+  // Avoid clobbering an existing report if two run in the same second.
+  let path = normalizePath(`${reportFolder}/Highlight scan ${stamp}.md`);
+  let n = 2;
+  while (app.vault.getAbstractFileByPath(path)) {
+    path = normalizePath(`${reportFolder}/Highlight scan ${stamp}-${n++}.md`);
+  }
 
   const lines: string[] = [];
   lines.push("# Highlight scan report", "");
