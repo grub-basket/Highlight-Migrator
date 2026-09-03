@@ -1,0 +1,20 @@
+{
+  "name": "highlight-migrator",
+  "version": "0.1.0",
+  "description": "Migrate legacy <mark> HTML highlights to Obsidian's native emoji highlight colours.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+  },
+  "keywords": [],
+  "author": "grub-basket",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "0.20.2",
+    "obsidian": "latest",
+    "typescript": "^5.4.5"
+  }
+}

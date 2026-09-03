@@ -1,0 +1,53 @@
+name: Release
+on:
+  push:
+    branches: ["main"]
+    paths: ["manifest.json"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify versions.json covers this release
+        run: |
+          VERSION=$(jq -r .version manifest.json)
+          MIN=$(jq -r .minAppVersion manifest.json)
+          MAPPED=$(jq -r --arg v "$VERSION" '.[$v] // empty' versions.json)
+          if [ -z "$MAPPED" ]; then
+            echo "::error::versions.json has no entry for $VERSION"; exit 1
+          fi
+          if [ "$MAPPED" != "$MIN" ]; then
+            echo "::error::versions.json maps $VERSION -> $MAPPED but manifest minAppVersion is $MIN"; exit 1
+          fi
+          echo "versions.json OK: $VERSION -> $MAPPED"
+
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=$(jq -r .version manifest.json)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; nothing to do."
+            exit 0
+          fi
+          git tag "$TAG"
+          git push origin "$TAG"
+          NOTES_FILE="release-notes/${TAG}.md"
+          if [ -f "$NOTES_FILE" ]; then
+            NOTES_ARG=(--notes-file "$NOTES_FILE")
+          else
+            PREV_TAG=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || echo "")
+            if [ -z "$PREV_TAG" ]; then
+              LOG=$(git log --pretty=format:'- %s')
+            else
+              LOG=$(git log "$PREV_TAG".."$TAG" --pretty=format:'- %s')
+            fi
+            NOTES_ARG=(--notes "## Changes since ${PREV_TAG:-the beginning}"$'\n\n'"$LOG")
+          fi
+          gh release create "$TAG" --title "$TAG" "${NOTES_ARG[@]}"
+          gh release upload "$TAG" main.js manifest.json styles.css --clobber

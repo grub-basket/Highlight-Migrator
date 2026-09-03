@@ -1,0 +1,9 @@
+{
+  "id": "highlight-migrator",
+  "name": "Highlight Migrator",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Scan legacy HTML highlights, map each colour to a native highlight colour, back up affected notes, then convert them — with full revert.",
+  "author": "grub-basket",
+  "isDesktopOnly": true
+}
