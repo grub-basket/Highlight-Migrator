@@ -25,7 +25,7 @@ async function ensureFolder(app: App, folder: string): Promise<void> {
     if (!app.vault.getAbstractFileByPath(cur)) {
       try {
         await app.vault.createFolder(cur);
-      } catch (e) {
+      } catch {
         // Ignore "already exists" races.
       }
     }
@@ -149,7 +149,7 @@ export async function listManifests(
       try {
         const data = JSON.parse(await app.vault.read(mf)) as MigrationManifest;
         out.push({ folder: child.path, manifest: data });
-      } catch (e) {
+      } catch {
         // Skip unreadable manifest.
       }
     }
