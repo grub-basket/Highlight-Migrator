@@ -6,7 +6,8 @@ export type NativeColor = "red" | "orange" | "yellow" | "green" | "blue" | "purp
 
 // A mapping target is a native colour, "default" (plain ==text== with no emoji),
 // or "skip" (leave the original <mark> untouched).
-export type Target = NativeColor | "default" | "skip";
+// "unset" = no decision yet (blank in the review UI); left untouched on convert.
+export type Target = NativeColor | "default" | "skip" | "unset";
 
 export const NATIVE_ORDER: NativeColor[] = [
   "red",
@@ -92,21 +93,29 @@ const ANCHOR_LAB: Record<NativeColor, RGB> = Object.fromEntries(
   NATIVE_ORDER.map((k) => [k, rgbToLab(NATIVE_ANCHORS[k])])
 ) as Record<NativeColor, RGB>;
 
-// Highlightr's stock pastel palette maps 1:1 to native colours. These pastels
-// are desaturated, so plain nearest-anchor matching misfires (e.g. pale green
-// #BBFABB lands nearer the yellow anchor). Match the known defaults exactly
-// first, by base RGB (alpha ignored), before falling back to nearest().
-const KNOWN_HIGHLIGHTR: Record<string, NativeColor> = {
+// The stock Highlightr / Highlightr Plus default palette, keyed by base RGB
+// (alpha ignored). These are the only colours we pre-fill a suggestion for;
+// any custom colour is left blank for the user to decide. Both the A6-alpha
+// and the CC-alpha ("floating") variants share the same six-digit bases below.
+// Grey has no native equivalent, so it maps to a plain (uncoloured) highlight.
+const KNOWN_HIGHLIGHTR: Record<string, Target> = {
   FF5582: "red",
+  FFB8EB: "red", // pink
+  FFB7EA: "red", // pink (CC variant)
   FFB86C: "orange",
   FFF3A3: "yellow",
   BBFABB: "green",
+  "9CF09C": "green", // CC variant
   ADCCFF: "blue",
+  "93C0FF": "blue", // CC variant
+  ABF7F7: "blue", // aqua / cyan
   D2B3FF: "purple",
+  CCA9FF: "purple", // CC variant
+  CACFD9: "default", // grey -> plain highlight, no native colour
 };
 
-/** Exact match for a known Highlightr default colour, or null. `hex` may include #/alpha. */
-export function knownHighlightrColor(hex: string): NativeColor | null {
+/** Exact match for a known default colour, or null. `hex` may include #/alpha. */
+export function knownHighlightrColor(hex: string): Target | null {
   const base = hex.replace(/^#/, "").slice(0, 6).toUpperCase();
   return KNOWN_HIGHLIGHTR[base] ?? null;
 }
@@ -128,25 +137,21 @@ export function nearestNative(rgb: RGB): NativeColor {
 }
 
 /** Best-guess native colour from a Highlightr class name like "hltr-orange". */
-export function guessFromClass(cls: string): NativeColor | null {
-  const n = cls.toLowerCase();
-  const table: [string, NativeColor][] = [
-    ["pink", "red"],
-    ["rose", "red"],
-    ["red", "red"],
-    ["orange", "orange"],
-    ["amber", "orange"],
-    ["yellow", "yellow"],
-    ["gold", "yellow"],
-    ["green", "green"],
-    ["lime", "green"],
-    ["teal", "green"],
-    ["blue", "blue"],
-    ["cyan", "blue"],
-    ["purple", "purple"],
-    ["violet", "purple"],
-    ["magenta", "purple"],
-  ];
-  for (const [needle, col] of table) if (n.includes(needle)) return col;
-  return null;
+export function guessFromClass(cls: string): Target | null {
+  // Highlightr / Highlightr Plus default classes are hltr-<name>. Only the nine
+  // stock names get a suggestion; a custom class is left blank for the user.
+  const token = cls.toLowerCase().replace(/^hltr[-_]/, "");
+  const map: Record<string, Target> = {
+    pink: "red",
+    red: "red",
+    orange: "orange",
+    yellow: "yellow",
+    green: "green",
+    cyan: "blue",
+    blue: "blue",
+    purple: "purple",
+    grey: "default",
+    gray: "default",
+  };
+  return map[token] ?? null;
 }

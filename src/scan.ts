@@ -3,7 +3,6 @@ import {
   Target,
   NATIVE_EMOJI,
   parseHex,
-  nearestNative,
   knownHighlightrColor,
   guessFromClass,
   RGB,
@@ -38,10 +37,17 @@ interface Classified {
   key: string;
   raw: string;
   rgb: RGB | null;
+  annotated: boolean; // carries Highlightr Plus metadata (data-note/tags/name/type)
 }
+
+// Highlightr Plus attaches note/tag metadata to a <mark> via these attributes.
+// Converting such a mark to native syntax would drop that data, so we never
+// auto-convert them — they are treated as unsafe (skipped and reported).
+const ANNOTATION_ATTR = /\bdata-(note|tags|name|type)\s*=/i;
 
 /** Identify a <mark>'s colour from its attribute string. Hex wins over class. */
 export function classify(attrs: string, includeClass: boolean): Classified | null {
+  const annotated = ANNOTATION_ATTR.test(attrs);
   const styleM = attrs.match(/style\s*=\s*"([^"]*)"/i);
   if (styleM) {
     const bg = styleM[1].match(
@@ -50,7 +56,7 @@ export function classify(attrs: string, includeClass: boolean): Classified | nul
     if (bg) {
       const raw = bg[1];
       const key = "#" + raw.slice(1).toUpperCase();
-      return { mode: "hex", key, raw, rgb: parseHex(raw) };
+      return { mode: "hex", key, raw, rgb: parseHex(raw), annotated };
     }
   }
   if (includeClass) {
@@ -59,7 +65,7 @@ export function classify(attrs: string, includeClass: boolean): Classified | nul
       const h = classM[1].match(/hltr-[a-z0-9-]+/i);
       if (h) {
         const key = h[0].toLowerCase();
-        return { mode: "class", key, raw: key, rgb: null };
+        return { mode: "class", key, raw: key, rgb: null, annotated };
       }
     }
   }
@@ -93,19 +99,19 @@ export function scanText(
     const rec =
       out.get(c.key) ??
       { rgb: c.rgb, raw: c.raw, mode: c.mode, count: 0, unsafe: 0 };
-    if (isUnsafe(m[2])) rec.unsafe++;
+    if (isUnsafe(m[2]) || c.annotated) rec.unsafe++;
     else rec.count++;
     out.set(c.key, rec);
   }
   return out;
 }
 
-function suggestFor(mode: Mode, rgb: RGB | null, key: string): Target {
-  if (mode === "hex") {
-    return knownHighlightrColor(key) ?? (rgb ? nearestNative(rgb) : "skip");
-  }
-  if (mode === "class") return guessFromClass(key) ?? "skip";
-  return "skip";
+// Only recognised default colours get a pre-filled suggestion; any custom
+// colour is left "unset" (blank) so the user consciously chooses skip or a colour.
+function suggestFor(mode: Mode, key: string): Target {
+  if (mode === "hex") return knownHighlightrColor(key) ?? "unset";
+  if (mode === "class") return guessFromClass(key) ?? "unset";
+  return "unset";
 }
 
 /**
@@ -133,7 +139,7 @@ export function buildScanResult(
           count: 0,
           unsafe: 0,
           files: new Set<string>(),
-          suggested: suggestFor(info.mode, info.rgb, key),
+          suggested: suggestFor(info.mode, key),
         };
         groups.set(key, g);
       }
@@ -172,8 +178,8 @@ export function convertText(
     const c = classify(attrs, includeClass);
     if (!c) return full;
     const target = mapping[c.key];
-    if (!target || target === "skip") return full;
-    if (isUnsafe(inner)) {
+    if (!target || target === "skip" || target === "unset") return full;
+    if (isUnsafe(inner) || c.annotated) {
       skipped++;
       return full;
     }

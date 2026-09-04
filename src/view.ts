@@ -68,28 +68,38 @@ export class HighlightMigratorView extends ItemView {
     }
   }
 
-  private plannedCounts(): { convert: number; skip: number; notes: number } {
+  private plannedCounts(): {
+    convert: number;
+    skip: number;
+    undecided: number;
+    notes: number;
+  } {
     let convert = 0;
     let skip = 0;
+    let undecided = 0;
     const notes = new Set<string>();
-    if (!this.result) return { convert, skip, notes: 0 };
+    if (!this.result) return { convert, skip, undecided, notes: 0 };
     for (const g of this.result.groups) {
-      const t = this.mapping[g.key] ?? "skip";
-      if (t === "skip") {
+      const t = this.mapping[g.key] ?? "unset";
+      if (t === "unset") {
+        undecided += g.count;
+      } else if (t === "skip") {
         skip += g.count;
       } else {
         convert += g.count;
         for (const f of g.files) notes.add(f);
       }
     }
-    return { convert, skip, notes: notes.size };
+    return { convert, skip, undecided, notes: notes.size };
   }
 
   private async runApply() {
     if (this.busy || !this.result) return;
     const plan = this.plannedCounts();
     if (plan.convert === 0) {
-      new Notice("Highlight Migrator: nothing mapped to convert (all skipped).");
+      new Notice(
+        "Highlight Migrator: nothing mapped to a colour yet (choose colours for the rows you want to convert)."
+      );
       return;
     }
     new ConfirmModal(
@@ -224,6 +234,7 @@ export class HighlightMigratorView extends ItemView {
         const o = sel.createEl("option", { text: label, value });
         if ((this.mapping[g.key] ?? g.suggested) === value) o.selected = true;
       };
+      addOpt("unset", "— choose —");
       addOpt("skip", "Skip (leave as-is)");
       addOpt("default", "Default (no colour)");
       for (const nc of NATIVE_ORDER) {
@@ -232,8 +243,10 @@ export class HighlightMigratorView extends ItemView {
       // Preview chip of the target emoji
       const chip = mapTd.createSpan({ cls: "hm-chip" });
       const paintChip = () => {
-        const t = this.mapping[g.key] ?? "skip";
-        if (t === "skip") chip.setText("—");
+        const t = this.mapping[g.key] ?? "unset";
+        chip.style.color = "";
+        if (t === "unset") chip.setText("(undecided)");
+        else if (t === "skip") chip.setText("(kept as-is)");
         else if (t === "default") chip.setText("==·==");
         else {
           chip.setText(`==${NATIVE_EMOJI[t]}…==`);
@@ -271,7 +284,7 @@ export class HighlightMigratorView extends ItemView {
     if (!this.planEl) return;
     const p = this.plannedCounts();
     this.planEl.setText(
-      `Plan: convert ${p.convert} highlight(s) in ${p.notes} note(s); skip ${p.skip}.`
+      `Plan: convert ${p.convert} highlight(s) in ${p.notes} note(s); skip ${p.skip}; undecided ${p.undecided}.`
     );
   }
 }
