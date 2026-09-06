@@ -216,7 +216,7 @@ export class HighlightMigratorView extends ItemView {
       const sampleTd = row.createEl("td");
       const sw = sampleTd.createDiv({ cls: "hm-swatch" });
       if (g.mode === "hex") {
-        sw.style.background = g.raw;
+        sw.setCssStyles({ background: g.raw });
       } else {
         sw.addClass("hm-swatch-class");
         sw.setText("cls");
@@ -244,13 +244,13 @@ export class HighlightMigratorView extends ItemView {
       const chip = mapTd.createSpan({ cls: "hm-chip" });
       const paintChip = () => {
         const t = this.mapping[g.key] ?? "unset";
-        chip.style.color = "";
+        chip.setCssStyles({ color: "" });
         if (t === "unset") chip.setText("(undecided)");
         else if (t === "skip") chip.setText("(kept as-is)");
         else if (t === "default") chip.setText("==·==");
         else {
           chip.setText(`==${NATIVE_EMOJI[t]}…==`);
-          chip.style.color = NATIVE_SWATCH[t];
+          chip.setCssStyles({ color: NATIVE_SWATCH[t] });
         }
       };
       paintChip();
